@@ -35,9 +35,6 @@ services:
       - "81:80"
     networks:
       - back-tier
-    depends_on: 
-      - setup
-      - eventstore
     environment: 
       - EVENT_STORE=tcp://admin:changeit@eventstore:1113
       - EVENT_STORE_MANAGER_HOST=eventstore:2113
@@ -60,7 +57,7 @@ services:
         monitor: 60s
         max_failure_ratio: 0.3
   
-  result:
+  results:
     image: ${REGISTRY}quiz-results:${SHA_COMMIT}
     ports:
       - "82:80"
@@ -70,7 +67,6 @@ services:
       - EVENT_STORE=tcp://admin:changeit@eventstore:1113
     depends_on: 
       - setup
-      - eventstore
     logging:
       driver: "json-file"
     deploy:
@@ -89,7 +85,7 @@ services:
         failure_action: continue
         monitor: 60s
         max_failure_ratio: 0.3
-
+  
   eventstore:
     image: eventstore/eventstore
     ports:
@@ -108,7 +104,6 @@ services:
     networks:
       - back-tier
     environment: 
-      - EVENT_STORE=tcp://admin:changeit@eventstore:1113
       - EVENT_STORE_MANAGER_HOST=eventstore:2113
     depends_on: 
       - eventstore
@@ -120,8 +115,8 @@ services:
       restart_policy:
         condition: on-failure
         delay: 5s
-        max_attempts: 3
-        window: 120s
+        max_attempts: 2
+        window: 120s   
 
   ci:
     image: ${REGISTRY}awesome-ci:${SHA_COMMIT}
@@ -130,7 +125,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - back-tier
+      - front-tier
     environment: 
       - CI_TOKEN=${CI_TOKEN}
       - REGISTRY=${REGISTRY}
@@ -152,6 +147,36 @@ services:
         failure_action: continue
         monitor: 60s
         max_failure_ratio: 0.3
+  
+  registry: 
+    image: registry:2
+    ports:
+      - "5000:5000"
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+  viz:
+    image: manomarks/visualizer
+    ports:
+      - "9090:8080"
+    environment: 
+      - PORT=9090
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+  portainer:
+    image: portainer/portainer
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      placement:
+        constraints: [node.role == manager]
 
 networks:
   front-tier:

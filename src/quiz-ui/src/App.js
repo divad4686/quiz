@@ -1,72 +1,106 @@
 import React, { Component } from 'react';
+import Loader from './Loader';
+import Voting from './Voting';
+import Results from './Results';
+import { getQuiz, postQuizAnswers, startNewQuiz, initWebsockets } from './api';
+import { bindClass } from './utils';
+
 import './App.css';
-import {get, post, put, startWs} from './api';
 
 class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
       quizId: 0,
-      questions: []
+      questions: [],
+      isProcessing: true,
+      isSubmitted: false,
+      showResults: window.location.search.indexOf('results') !== -1
     };
 
-    this.startQuiz = this.startQuiz.bind(this);
-    this.voteQuestion = this.voteQuestion.bind(this);
+    bindClass(this);
   }
 
   componentDidMount() {
-    get().then(json => {
-        this.setState({ 
-          quizId: json.quizId, 
-          questions: json.quizModel.questions.map(q => 
-            ({ ...q, 
-              ...json.questions.find(x => x.questionId === q.id)
-            }))
-        })
+    getQuiz().then(json => {
+      if (json != null) {
+        this.setState({
+          quizId: json.quizId,
+          questions: json.quizModel.questions.map(q => ({
+            ...q,
+            ...json.questions.find(x => x.questionId === q.id)
+          })),
+          isProcessing: false
+        });
+      } else {
+        this.setState({
+          isProcessing: false
+        });
+      }
     });
 
-    startWs(questionStats =>
-      this.setState({ ...this.state,
-        questions: this.state.questions.map(
-          question => question.id === questionStats.questionId 
-            ? { ...question, ...questionStats  } 
-            : question)
-      })
-    );
+    initWebsockets(questionStats => this.setState({
+      ...this.state,
+      questions: this.state.questions.map(
+        question => question.id === questionStats.questionId
+          ? {
+              ...question,
+              ...questionStats
+            }
+          : question
+      )
+    }));
   }
 
-  startQuiz() {
-    put().then(json => this.setState({ ...json }));
+  startQuizHandler() {
+    startNewQuiz().then(json => this.setState({
+      ...json
+    }));
   }
 
-  voteQuestion(questionId, optionId) {
-    post(this.state.quizId, questionId, optionId)
-      .then(json => this.setState({ questions: json.questions }));
+  voteQuestionHandler(answers) {
+    this.setState({
+      isProcessing: true
+    });
+
+    postQuizAnswers(this.state.quizId, answers).then(json => {
+      this.setState({
+        isProcessing: false,
+        isSubmitted: true
+      });
+    });
   }
 
   render() {
+    const {
+      isProcessing,
+      showResults,
+      questions,
+      quizId,
+      isSubmitted
+    } = this.state;
     return (
-      <div className="App">
-          <h2>Welcome to Quiz {this.state.quizId}</h2>
-            {this.state.questions.map(q =>
-              <div key={q.id}>
-                {q.description} 
-                <ul key={q.id}>    
-                  {q.options.map(o => 
-                    <li key={o.id} onClick={() => this.voteQuestion(q.id,o.id)}>
-                      {o.description}
-                    </li>
-                    )}
-                </ul>
-                <p>
-                  <span>Right {q.rightAnswersPercent || 0} </span>
-                  <span>Wrong {q.wrongAnswersPercent || 0} </span>
-                </p>
-              </div>              
-            )}
-            <button onClick={() => this.startQuiz()}>
-              Start Quiz
-            </button>
+      <div className="Container">
+        {isProcessing &&
+          <div className="overlay">
+            <Loader />
+          </div>}
+        <div className="App-container">
+          <div className="App">
+            <h1>Welcome to Quiz App</h1>
+            {showResults
+              ? <Results
+                  questions={questions}
+                  quizId={quizId}
+                  startQuizHandler={this.startQuizHandler}
+                />
+              : <Voting
+                  questions={questions}
+                  voteQuestionHandler={this.voteQuestionHandler}
+                  isSubmitted={isSubmitted}
+                />}
+          </div>
+        </div>
       </div>
     );
   }

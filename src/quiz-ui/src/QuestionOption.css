@@ -1,0 +1,30 @@
+.QuestionOption {
+    margin: 10px 10px 10px 10px;
+    padding: 10px 10px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    text-align: left;
+    outline: none;
+}
+
+.QuestionOption.active:hover {
+    background: #7986CB;
+    color: #fff;
+}
+
+.QuestionOption.selected {
+    background: #3F51B5;
+    color: #fff;
+}
+
+.QuestionOption.correct {
+    background: #66BB6A;
+    color: #fff;
+}
+
+.QuestionOption.incorrect {
+    background: #EF5350;
+    color: #fff;
+}
